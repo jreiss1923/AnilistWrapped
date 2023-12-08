@@ -1,4 +1,12 @@
-Fix tiebreaks for 5 favorite shows
-Add favorite genre, studio
-Add 'most time spent watching x show'
+Fix tiebreaks for 5 favorite shows - done!
+Add favorite genre - done!
+add favorite studio - done!
+Add 'most time spent watching x show' - done!
+add favorite tags - done!
+make bar graph for genres - done!
+absolute value delta for "most unconventional" taste
+    compare user scores on shared shows
+create score distribution graph for 2023
+update bar graph with favorite show of genre
+fix bug with show names
 Create website
