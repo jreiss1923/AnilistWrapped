@@ -91,6 +91,7 @@ def queryUserStatuses(userid, page):
                             relationType
                         }
                     }
+                    averageScore
                 }
             }
         }
@@ -111,7 +112,7 @@ def queryMediaRating(userid):
                 hasNextPage
             }
             mediaList(userId: $userId) {
-                score
+                score(format: POINT_100)
                 media {
                     title {
                         romaji
@@ -139,6 +140,8 @@ def queryMediaRating(userid):
 
         hasNextPage = response['data']['Page']['pageInfo']['hasNextPage']
         page += 1
+
+        time.sleep(1)
 
     return showScoreDict
 
@@ -305,6 +308,10 @@ def filterTopFive(mediaScoreDict, userId):
 
     return topFiveShowsArr
 
+def addLabels(x, y, labels):
+    for i in range(len(x)):
+        plt.text(y[i] + len(labels[i])/23 + 1/10, i, labels[i], ha = 'center')
+
 def getFavoriteGenre(username):
 
     userid = getUserIdFromUsername(username)
@@ -313,6 +320,8 @@ def getFavoriteGenre(username):
 
     genreDict = {}
     showList = []
+
+    allMediaScoreDict = queryMediaRating(userid)
 
     while hasNextPage:
         response = queryUserStatuses(userid, page)
@@ -325,24 +334,28 @@ def getFavoriteGenre(username):
                     showList.append(status['media']['title']['romaji'])
                     for item in status['media']['genres']:
                         if item in list(genreDict.keys()):
-                            genreDict[item] += 1
+                            genreDict[item][1] += 1
+                            if allMediaScoreDict[status['media']['title']['romaji']] > allMediaScoreDict[genreDict[item][0]]:
+                                genreDict[item][0] = status['media']['title']['romaji']
                         else:
-                            genreDict[item] = 1
+                            genreDict[item] = [status['media']['title']['romaji'], 1]
 
         hasNextPage = response['data']['Page']['pageInfo']['hasNextPage']
         page = page + 1
 
-    genreDict = dict(sorted(genreDict.items(), key=lambda item: -item[1]))
+    genreDict = dict(sorted(genreDict.items(), key=lambda item: -item[1][1]))
     genreNames = list(genreDict.keys())
-    genreData = list(genreDict.values())
+    genreData = [x[1] for x in list(genreDict.values())]
+    genreLabels = [x[0] for x in list(genreDict.values())]
 
     fig = plt.figure(figsize = (20, 10))
 
-    plt.bar(genreNames, genreData, color ='maroon', 
-        width = 0.8)
+    plt.barh(genreNames, genreData, color ='maroon', 
+        height = 0.8)
 
-    plt.xlabel("Genres")
-    plt.ylabel("Number of Shows")
+    plt.xlabel("Number of Shows")
+    plt.ylabel("Genres")
+    addLabels(genreNames, genreData, genreLabels)
     plt.title(username + " Favorite Genres 2023")
     plt.show()
 
@@ -469,6 +482,152 @@ def getFavoriteTag(username, tagType):
         return [x[0] for x in list(themeDict.items())[0:3]]
     elif tagType == "Demo":
         return list(demoDict.items())[0][0]
+    
 
+def getControversyScore(username):
+
+    userid = getUserIdFromUsername(username)
+    hasNextPage = True
+    page = 0
+
+    showList = []
+    showScoreDict = queryMediaRating(userid)
+
+    sumDiffs = 0
+
+    while hasNextPage:
+
+        response = queryUserStatuses(userid, page)
+
+        statuses = response['data']['Page']['activities']
+
+        for status in statuses:
+            if 'status' in status:
+                if status['media']['title']['romaji'] not in showList and (status['status'] == 'watched episode' or status['status'] == 'rewatched episode' or status['status'] == 'rewatched' or (status['status'] == 'completed' and status['type'] == 'ANIME_LIST')):
+                    showList.append(status['media']['title']['romaji'])
+                    try:
+                        if showScoreDict[status['media']['title']['romaji']] != 0:
+                            sumDiffs += abs(showScoreDict[status['media']['title']['romaji']] - status['media']['averageScore'])
+                    except KeyError:
+                            print("Title differs in AniList")
+
+        hasNextPage = response['data']['Page']['pageInfo']['hasNextPage']
+        page = page + 1
+        
+    return sumDiffs / len(showList)
+
+
+def getRatingBias(username):
+    userid = getUserIdFromUsername(username)
+    hasNextPage = True
+    page = 0
+
+    showList = []
+    showScoreDict = queryMediaRating(userid)
+
+    sumDiffs = 0
+
+    while hasNextPage:
+
+        response = queryUserStatuses(userid, page)
+
+        statuses = response['data']['Page']['activities']
+
+        for status in statuses:
+            if 'status' in status:
+                if status['media']['title']['romaji'] not in showList and (status['status'] == 'watched episode' or status['status'] == 'rewatched episode' or status['status'] == 'rewatched' or (status['status'] == 'completed' and status['type'] == 'ANIME_LIST')):
+                    showList.append(status['media']['title']['romaji'])
+                    try:
+                        if showScoreDict[status['media']['title']['romaji']] != 0:
+                            sumDiffs += showScoreDict[status['media']['title']['romaji']] - status['media']['averageScore']
+                    except KeyError:
+                            print("Title differs in AniList")
+
+        hasNextPage = response['data']['Page']['pageInfo']['hasNextPage']
+        page = page + 1
+
+    return sumDiffs / len(showList)
+
+
+def getScoreDistribution(username):
+    userid = getUserIdFromUsername(username)
+    hasNextPage = True
+    page = 0
+
+    showList = []
+    showScoreDict = queryMediaRating(userid)
+
+    scoresDistributionDict = {"0-5": 0, "5-10":0, "10-15":0, "15-20":0, "20-25":0, "25-30":0, "30-35":0, "35-40":0, "40-45":0, "45-50":0, "50-55": 0, "55-60":0, "60-65":0, "65-70":0, "70-75":0, "75-80":0, "80-85":0, "85-90":0, "90-95":0, "95-100":0}
+
+    while hasNextPage:
+
+        response = queryUserStatuses(userid, page)
+
+        statuses = response['data']['Page']['activities']
+
+        for status in statuses:
+            if 'status' in status:
+                if status['media']['title']['romaji'] not in showList and (status['status'] == 'watched episode' or status['status'] == 'rewatched episode' or status['status'] == 'rewatched' or (status['status'] == 'completed' and status['type'] == 'ANIME_LIST')):
+                    showList.append(status['media']['title']['romaji'])
+                    try:
+                        if showScoreDict[status['media']['title']['romaji']] != 0:
+                            if showScoreDict[status['media']['title']['romaji']] < 5 and showScoreDict[status['media']['title']['romaji']] > 0:
+                                scoresDistributionDict["0-5"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 10 and showScoreDict[status['media']['title']['romaji']] >= 5:
+                                scoresDistributionDict["5-10"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 15 and showScoreDict[status['media']['title']['romaji']] >= 10:
+                                scoresDistributionDict["10-15"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 20 and showScoreDict[status['media']['title']['romaji']] >= 15:
+                                scoresDistributionDict["15-20"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 25 and showScoreDict[status['media']['title']['romaji']] >= 20:
+                                scoresDistributionDict["20-25"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 30 and showScoreDict[status['media']['title']['romaji']] >= 25:
+                                scoresDistributionDict["25-30"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 35 and showScoreDict[status['media']['title']['romaji']] >= 30:
+                                scoresDistributionDict["30-35"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 40 and showScoreDict[status['media']['title']['romaji']] >= 35:
+                                scoresDistributionDict["35-40"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 45 and showScoreDict[status['media']['title']['romaji']] >= 40:
+                                scoresDistributionDict["40-45"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 50 and showScoreDict[status['media']['title']['romaji']] >= 45:
+                                scoresDistributionDict["45-50"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 55 and showScoreDict[status['media']['title']['romaji']] >= 50:
+                                scoresDistributionDict["50-55"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 60 and showScoreDict[status['media']['title']['romaji']] >= 55:
+                                scoresDistributionDict["55-60"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 65 and showScoreDict[status['media']['title']['romaji']] >= 60:
+                                scoresDistributionDict["60-65"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 70 and showScoreDict[status['media']['title']['romaji']] >= 65:
+                                scoresDistributionDict["65-70"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 75 and showScoreDict[status['media']['title']['romaji']] >= 70:
+                                scoresDistributionDict["70-75"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 80 and showScoreDict[status['media']['title']['romaji']] >= 75:
+                                scoresDistributionDict["75-80"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 85 and showScoreDict[status['media']['title']['romaji']] >= 80:
+                                scoresDistributionDict["80-85"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] < 90 and showScoreDict[status['media']['title']['romaji']] >= 85:
+                                scoresDistributionDict["85-90"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] <= 95 and showScoreDict[status['media']['title']['romaji']] >= 90:
+                                scoresDistributionDict["90-95"] += 1
+                            elif showScoreDict[status['media']['title']['romaji']] <= 100 and showScoreDict[status['media']['title']['romaji']] >= 95:
+                                scoresDistributionDict["95-100"] += 1
+                    except KeyError as e:
+                        print(e)
+
+        hasNextPage = response['data']['Page']['pageInfo']['hasNextPage']
+        page = page + 1     
+
+    scoreLabels = list(scoresDistributionDict.keys())
+    scoreValues = [x for x in list(scoresDistributionDict.values())]
+
+    fig = plt.figure(figsize = (20, 10))
+
+    plt.bar(scoreLabels, scoreValues, color ='maroon')
+
+    plt.xlabel("Score Range")
+    plt.ylabel("Number of Shows")
+    plt.yticks(range(0, max(scoreValues) + 1))
+    plt.title(username + " Score Distribution 2023")
+    plt.show()
 
 

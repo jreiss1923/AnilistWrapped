@@ -4,9 +4,12 @@ add favorite studio - done!
 Add 'most time spent watching x show' - done!
 add favorite tags - done!
 make bar graph for genres - done!
-absolute value delta for "most unconventional" taste
-    compare user scores on shared shows
-create score distribution graph for 2023
-update bar graph with favorite show of genre
+absolute value delta for "most unconventional" taste - done!
+    compare user scores on shared shows - out of scope
+make all numbers 1 decimal on print - do when finalized
+create score distribution graph for 2023 - done!
+fix scale of graphs (all integers) - done!
+update bar graph with favorite show of genre - done!
+refactor sad
 fix bug with show names
 Create website
